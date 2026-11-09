@@ -48,12 +48,35 @@ export default function App() {
 
   const appContainerRef = useRef<HTMLDivElement>(null);
   const currentScene = SCENES[currentSceneIndex];
+  const [isPlayingReference, setIsPlayingReference] = useState(false);
 
-  // Initialize available voices and preload scene audio on mount
+  // Initialize available voices and preload scene audio on mount with reference calibration
   useEffect(() => {
-    // Preload audio for all 10 story scenes for zero latency
+    // Preload audio for all 10 story scenes with scene-specific pacing
     SCENES.forEach((scene) => {
-      speechStoryteller.preloadText(scene.narrationText);
+      speechStoryteller.preloadText(scene.narrationText, scene.speechRatePercent, scene.speechPitch);
+    });
+
+    // Preload authentic reference voice audio files
+    const directAudioUrls = SCENES.map((s) => s.audioSrc).filter(Boolean) as string[];
+    speechStoryteller.preloadAudioFiles(directAudioUrls);
+
+    // Preload all 2D story illustrations into browser cache for zero-latency instant display
+    const imagesToPreload = [
+      '/images/school_gate.webp',
+      '/images/portrait.webp',
+      '/images/cooking.webp',
+      '/images/eating.webp',
+      '/images/gratitude.webp',
+      '/images/school_gate.jpg',
+      '/images/portrait.jpg',
+      '/images/cooking.jpg',
+      '/images/eating.jpg',
+      '/images/gratitude.jpg',
+    ];
+    imagesToPreload.forEach((src) => {
+      const img = new Image();
+      img.src = src;
     });
 
     speechStoryteller.getAvailableVoices().then((voices) => {
@@ -108,44 +131,93 @@ export default function App() {
     setVoiceSettings((prev) => ({ ...prev, ...newSettings }));
   };
 
-  // Play Speech for Current Scene
+  // Play Reference Sample Audio
+  const handleToggleReferenceAudio = () => {
+    if (isPlayingReference) {
+      speechStoryteller.stop();
+      setIsPlayingReference(false);
+      soundFx.duckBackgroundMusic(false, voiceSettings.bgMusicVolume);
+    } else {
+      speechStoryteller.playReferenceAudio({
+        volume: voiceSettings.volume,
+        onStart: () => {
+          setIsPlayingReference(true);
+          setIsSpeaking(true);
+          soundFx.duckBackgroundMusic(true, voiceSettings.bgMusicVolume);
+        },
+        onEnd: () => {
+          setIsPlayingReference(false);
+          setIsSpeaking(false);
+          soundFx.duckBackgroundMusic(false, voiceSettings.bgMusicVolume);
+        },
+        onPause: () => {
+          setIsPlayingReference(false);
+          soundFx.duckBackgroundMusic(false, voiceSettings.bgMusicVolume);
+        },
+        onError: () => {
+          setIsPlayingReference(false);
+          setIsSpeaking(false);
+          soundFx.duckBackgroundMusic(false, voiceSettings.bgMusicVolume);
+        },
+      });
+    }
+  };
+
+  // Play Speech for Current Scene with calibrated rate, pitch, audio ducking, and 1-2s post-narration hold
   const handlePlayCurrentScene = useCallback((customText?: string) => {
     const textToRead = customText || currentScene.narrationText;
+    const ratePercent = customText ? "-6%" : currentScene.speechRatePercent;
+    const rateMultiplier = customText ? 0.95 : (currentScene.speechRateMultiplier * (voiceSettings.rate / 0.88));
+    const pitchHz = customText ? "+1Hz" : currentScene.speechPitch;
 
     speechStoryteller.speak(textToRead, {
+      audioSrc: customText ? undefined : currentScene.audioSrc,
       voiceURI: voiceSettings.selectedVoiceURI,
-      rate: voiceSettings.rate,
+      rate: rateMultiplier,
+      ratePercent: ratePercent,
       pitch: voiceSettings.pitch,
+      pitchHz: pitchHz,
       volume: voiceSettings.volume,
       useSystemVoice: voiceSettings.useSystemVoice,
       onStart: () => {
         setIsSpeaking(true);
         setIsPaused(false);
+        setIsPlayingReference(false);
+        soundFx.duckBackgroundMusic(true, voiceSettings.bgMusicVolume);
       },
       onEnd: () => {
         setIsSpeaking(false);
         setIsPaused(false);
+        soundFx.duckBackgroundMusic(false, voiceSettings.bgMusicVolume);
 
-        // Auto Advance if enabled and not currently reading custom text in quiz
+        // Auto Advance if enabled: exactly hold the slide for 1-2 seconds after narration ends
         if (voiceSettings.autoPlayNext && !customText) {
+          const holdMs = (currentScene.holdAfterSeconds || 1.8) * 1000;
           if (currentSceneIndex < SCENES.length - 1) {
             setTimeout(() => {
               setCurrentSceneIndex((prev) => prev + 1);
-            }, 1400);
+            }, holdMs);
           } else {
             // Reached end of Scene 10
             setTimeout(() => {
               setAppState('end');
               soundFx.playSuccessFanfare();
-            }, 2000);
+            }, holdMs + 400);
           }
         }
       },
-      onPause: () => setIsPaused(true),
-      onResume: () => setIsPaused(false),
+      onPause: () => {
+        setIsPaused(true);
+        soundFx.duckBackgroundMusic(false, voiceSettings.bgMusicVolume);
+      },
+      onResume: () => {
+        setIsPaused(false);
+        soundFx.duckBackgroundMusic(true, voiceSettings.bgMusicVolume);
+      },
       onError: () => {
         setIsSpeaking(false);
         setIsPaused(false);
+        soundFx.duckBackgroundMusic(false, voiceSettings.bgMusicVolume);
       },
       onWord: (charIdx) => {
         setActiveWordIndex(charIdx);
@@ -370,8 +442,11 @@ export default function App() {
             <TeacherControlBar
               currentSceneId={currentScene.id}
               totalScenes={SCENES.length}
+              currentSceneCategory={currentScene.speechCategory}
+              currentSceneRate={currentScene.speechRateMultiplier}
               isSpeaking={isSpeaking}
               isPaused={isPaused}
+              isPlayingReference={isPlayingReference}
               hasVietnameseVoice={hasViVoice}
               voices={availableVoices}
               voiceSettings={voiceSettings}
@@ -384,6 +459,7 @@ export default function App() {
               onPrevScene={handlePrevScene}
               onNextScene={handleNextScene}
               onSelectScene={handleSelectScene}
+              onPlayReferenceAudio={handleToggleReferenceAudio}
             />
           </div>
         )}

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { STORY_TITLE, STORY_SUBTITLE, STORY_MESSAGE } from '../data/storyData';
+import { portraitImg, portraitBase64 } from '../assets/storyImages';
 import { soundFx } from '../utils/audioSynthesis';
 import { Play, Sparkles, BookOpen, Users, Volume2 } from 'lucide-react';
 
@@ -9,6 +10,8 @@ interface StartScreenProps {
 }
 
 export const StartScreen: React.FC<StartScreenProps> = ({ onStartStory, onOpenCharacterGuide }) => {
+  const [heroSrc, setHeroSrc] = useState<string>(portraitImg);
+
   const handleStart = () => {
     onStartStory();
   };
@@ -48,9 +51,19 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStartStory, onOpenCh
         {/* Character Illustration Preview Container */}
         <div className="my-6 relative rounded-2xl overflow-hidden border-2 border-amber-200/80 shadow-inner aspect-[16/9] max-h-72 mx-auto">
           <img
-            src="/src/assets/images/story_bac_cap_duong_portrait_1794154524489.jpg"
+            src={heroSrc}
             alt="Bác Cấp Dưỡng và các bạn nhỏ mầm non"
-            referrerPolicy="no-referrer"
+            loading="eager"
+            decoding="async"
+            onError={() => {
+              if (heroSrc === portraitImg) {
+                setHeroSrc('/images/portrait.webp');
+              } else if (heroSrc === '/images/portrait.webp') {
+                setHeroSrc('/images/portrait.jpg');
+              } else {
+                setHeroSrc(portraitBase64);
+              }
+            }}
             className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-1000"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent flex items-end justify-center p-4">
@@ -81,19 +94,19 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStartStory, onOpenCh
 
         {/* Feature Badges */}
         <div className="mt-7 pt-5 border-t border-amber-100 flex flex-wrap items-center justify-center gap-4 text-xs font-semibold text-slate-500">
-          <span className="flex items-center gap-1.5">
-            <Volume2 className="w-4 h-4 text-amber-600" />
-            Giọng cô giáo tiếng Việt
+          <span className="flex items-center gap-1.5 text-rose-700 font-bold">
+            <Volume2 className="w-4 h-4 text-rose-600" />
+            Giọng cô giáo ấm áp đồng bộ theo audio mẫu
           </span>
           <span>·</span>
           <span className="flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4 text-rose-500" />
-            10 cảnh minh họa 2D sinh động
+            <Sparkles className="w-4 h-4 text-amber-600" />
+            Tốc độ linh hoạt từng slide (0.88x - 0.98x)
           </span>
           <span>·</span>
-          <span>Đàm thoại tương tác</span>
+          <span>Nhạc nền tự giảm khi đọc</span>
           <span>·</span>
-          <span>Chuẩn máy chiếu mầm non</span>
+          <span>10 cảnh 2D nguyên bản</span>
         </div>
       </div>
     </div>

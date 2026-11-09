@@ -163,6 +163,20 @@ class SoundEffectsManager {
     }
   }
 
+  // Smoothly reduce background music volume during speech (Audio Ducking)
+  duckBackgroundMusic(isDucked: boolean, targetVol = 0.08) {
+    if (!this.bgGain || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    const duckVol = Math.max(0.01, targetVol * 0.35); // 8-12% ducked to ~3-4% during narration
+    const normalVol = targetVol;
+    this.bgGain.gain.cancelScheduledValues(now);
+    if (isDucked) {
+      this.bgGain.gain.linearRampToValueAtTime(duckVol, now + 0.3);
+    } else {
+      this.bgGain.gain.linearRampToValueAtTime(normalVol, now + 0.8);
+    }
+  }
+
   stopBackgroundMusic() {
     this.isBgPlaying = false;
     if (this.bgTimer) {

@@ -19,8 +19,11 @@ import {
 interface TeacherControlBarProps {
   currentSceneId: number;
   totalScenes: number;
+  currentSceneCategory?: string;
+  currentSceneRate?: number;
   isSpeaking: boolean;
   isPaused: boolean;
+  isPlayingReference?: boolean;
   hasVietnameseVoice: boolean;
   voices: VoiceOption[];
   voiceSettings: VoiceSettings;
@@ -33,13 +36,17 @@ interface TeacherControlBarProps {
   onPrevScene: () => void;
   onNextScene: () => void;
   onSelectScene: (id: number) => void;
+  onPlayReferenceAudio?: () => void;
 }
 
 export const TeacherControlBar: React.FC<TeacherControlBarProps> = ({
   currentSceneId,
   totalScenes,
+  currentSceneCategory = 'Kể chuyện',
+  currentSceneRate = 0.92,
   isSpeaking,
   isPaused,
+  isPlayingReference = false,
   hasVietnameseVoice,
   voices,
   voiceSettings,
@@ -52,6 +59,7 @@ export const TeacherControlBar: React.FC<TeacherControlBarProps> = ({
   onPrevScene,
   onNextScene,
   onSelectScene,
+  onPlayReferenceAudio,
 }) => {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
@@ -183,16 +191,38 @@ export const TeacherControlBar: React.FC<TeacherControlBarProps> = ({
         </div>
       </div>
 
-      {/* Pure Storyteller Voice Status Banner */}
-      <div className="mt-2.5 bg-rose-50/90 border border-rose-200 text-rose-950 px-4 py-2 rounded-2xl text-xs sm:text-sm flex items-center justify-between shadow-xs">
-        <div className="flex items-center gap-2">
+      {/* Calibrated Storyteller Voice Status & Reference Audio Toolbar */}
+      <div className="mt-2.5 bg-rose-50/90 border border-rose-200 text-rose-950 px-3 sm:px-4 py-2 rounded-2xl text-xs sm:text-sm flex flex-wrap items-center justify-between gap-2 shadow-xs">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
-          <span className="font-bold">Giọng kể MC truyền hình:</span>
-          <span className="font-medium text-slate-800">Trong trẻo, truyền cảm, ấm áp · Trường Mầm Non An Đông, TP. Huế</span>
+          <span className="font-bold text-rose-900">Giọng đọc đồng bộ:</span>
+          <span className="px-2.5 py-0.5 rounded-lg bg-amber-100/90 border border-amber-300 text-amber-950 font-bold text-xs">
+            {currentSceneCategory} ({currentSceneRate}x)
+          </span>
+          <span className="hidden lg:inline text-slate-700 text-xs">
+            · Tự động giảm nhạc nền khi đọc (Ducking)
+          </span>
         </div>
-        <span className="hidden sm:inline-block text-[11px] font-bold text-rose-700 bg-white border border-rose-200 px-2.5 py-0.5 rounded-full">
-          Truyền hình chất lượng cao
-        </span>
+
+        <div className="flex items-center gap-2">
+          {onPlayReferenceAudio && (
+            <button
+              onClick={onPlayReferenceAudio}
+              title="Nghe file ghi âm mẫu gốc do bạn cung cấp (1 phút 01 giây)"
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer ${
+                isPlayingReference
+                  ? 'bg-rose-600 text-white animate-pulse'
+                  : 'bg-white hover:bg-rose-100 text-rose-800 border border-rose-300'
+              }`}
+            >
+              <span>{isPlayingReference ? '⏹ Đang phát file mẫu' : '🎧 Nghe Audio Mẫu Gốc (1:01)'}</span>
+            </button>
+          )}
+
+          <span className="text-[11px] font-bold text-rose-700 bg-white border border-rose-200 px-2.5 py-0.5 rounded-full">
+            Chuẩn Mầm Non An Đông
+          </span>
+        </div>
       </div>
 
       {/* Teacher Settings Drawer / Modal */}

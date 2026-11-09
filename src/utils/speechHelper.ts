@@ -21,19 +21,31 @@ export class SpeechStoryteller {
     }
   }
 
-  // Pre-load audio for seamless instant playback
-  preloadText(text: string) {
+  // Pre-load audio for seamless instant playback with custom rate & pitch
+  preloadText(text: string, rate = "-6%", pitch = "+1Hz") {
     if (typeof window === 'undefined') return;
     const cleanText = text.trim();
-    if (!cleanText || this.preloadedUrls.has(cleanText)) return;
+    const cacheKey = `${cleanText}_${rate}_${pitch}`;
+    if (!cleanText || this.preloadedUrls.has(cacheKey)) return;
 
     const url = `/api/tts?text=${encodeURIComponent(cleanText)}`;
-    this.preloadedUrls.set(cleanText, url);
+    this.preloadedUrls.set(cacheKey, url);
 
     // Pre-fetch in browser cache
     const audio = new Audio();
     audio.preload = 'auto';
     audio.src = url;
+  }
+
+  // Pre-fetch direct audio files into browser cache
+  preloadAudioFiles(sources: string[]) {
+    if (typeof window === 'undefined') return;
+    sources.forEach((src) => {
+      if (!src) return;
+      const audio = new Audio();
+      audio.preload = 'auto';
+      audio.src = src;
+    });
   }
 
   getAvailableVoices(): Promise<VoiceOption[]> {
@@ -95,9 +107,12 @@ export class SpeechStoryteller {
   speak(
     text: string,
     options: {
+      audioSrc?: string;
       voiceURI?: string;
       rate?: number;
+      ratePercent?: string;
       pitch?: number;
+      pitchHz?: string;
       volume?: number;
       useSystemVoice?: boolean;
       onStart?: () => void;
@@ -126,13 +141,21 @@ export class SpeechStoryteller {
       }
     }
 
-    // Default & High Quality Route: Natural Vietnamese Teacher Voice via /api/tts
+    // 1. If direct authentic audio file exists from reference recording, play it directly!
+    if (options.audioSrc && !options.useSystemVoice) {
+      this.currentMode = 'audio';
+      this.speakWithAudioFile(options.audioSrc, text, options);
+      return;
+    }
+
+    // 2. High Quality Route: Natural Vietnamese Teacher Voice via /api/tts
     this.currentMode = 'audio';
     this.speakWithAudio(text, options);
   }
 
-  private speakWithAudio(
-    text: string,
+  private speakWithAudioFile(
+    src: string,
+    fallbackText: string,
     options: {
       rate?: number;
       volume?: number;
@@ -145,9 +168,121 @@ export class SpeechStoryteller {
     }
   ) {
     try {
+      const audio = new Audio(src);
+      audio.playbackRate = options.rate ?? 1.0;
+      if ('preservesPitch' in audio) {
+        (audio as unknown as { preservesPitch?: boolean }).preservesPitch = true;
+      }
+      audio.volume = options.volume ?? 1;
+
+      audio.onplay = () => {
+        this.isSpeakingState = true;
+        this.isPausedState = false;
+        options.onStart?.();
+      };
+
+      audio.onpause = () => {
+        if (!audio.ended) {
+          this.isPausedState = true;
+          options.onPause?.();
+        }
+      };
+
+      audio.onended = () => {
+        this.isSpeakingState = false;
+        this.isPausedState = false;
+        this.audioElement = null;
+        options.onEnd?.();
+      };
+
+      audio.onerror = (e) => {
+        console.warn(`Audio file ${src} failed to load, falling back to TTS...`, e);
+        this.speakWithAudio(fallbackText, options);
+      };
+
+      this.audioElement = audio;
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn('Playback error or autoplay blocked, fallback to TTS:', err);
+          this.speakWithAudio(fallbackText, options);
+        });
+      }
+    } catch {
+      this.speakWithAudio(fallbackText, options);
+    }
+  }
+
+  // Play the actual provided reference sample audio directly
+  playReferenceAudio(options: {
+    volume?: number;
+    onStart?: () => void;
+    onEnd?: () => void;
+    onPause?: () => void;
+    onError?: (err: unknown) => void;
+  }) {
+    this.stop();
+    this.currentMode = 'audio';
+    try {
+      const audio = new Audio('/audio/reference_story.m4a');
+      audio.volume = options.volume ?? 1;
+
+      audio.onplay = () => {
+        this.isSpeakingState = true;
+        this.isPausedState = false;
+        options.onStart?.();
+      };
+
+      audio.onpause = () => {
+        if (!audio.ended) {
+          this.isPausedState = true;
+          options.onPause?.();
+        }
+      };
+
+      audio.onended = () => {
+        this.isSpeakingState = false;
+        this.isPausedState = false;
+        this.audioElement = null;
+        options.onEnd?.();
+      };
+
+      audio.onerror = (e) => {
+        this.isSpeakingState = false;
+        this.isPausedState = false;
+        options.onError?.(e);
+      };
+
+      this.audioElement = audio;
+      audio.play().catch((err) => {
+        options.onError?.(err);
+      });
+    } catch (e) {
+      options.onError?.(e);
+    }
+  }
+
+  private speakWithAudio(
+    text: string,
+    options: {
+      rate?: number;
+      ratePercent?: string;
+      pitch?: number;
+      pitchHz?: string;
+      volume?: number;
+      onStart?: () => void;
+      onEnd?: () => void;
+      onPause?: () => void;
+      onResume?: () => void;
+      onError?: (err: unknown) => void;
+      onWord?: (charIndex: number, charLength: number) => void;
+    }
+  ) {
+    try {
       const url = `/api/tts?text=${encodeURIComponent(text.trim())}`;
       const audio = new Audio(url);
-      audio.playbackRate = options.rate ?? 0.9;
+      audio.playbackRate = options.rate ?? 0.92;
+      (audio as unknown as { preservesPitch?: boolean }).preservesPitch = true;
       audio.volume = options.volume ?? 1;
 
       audio.onplay = () => {

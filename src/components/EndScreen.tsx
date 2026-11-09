@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { STORY_TITLE, STORY_MESSAGE } from '../data/storyData';
+import { gratitudeImg, gratitudeBase64 } from '../assets/storyImages';
 import { soundFx } from '../utils/audioSynthesis';
 import { RotateCcw, Heart, Sparkles, Award, MessageCircleQuestion } from 'lucide-react';
 
@@ -9,6 +10,8 @@ interface EndScreenProps {
 }
 
 export const EndScreen: React.FC<EndScreenProps> = ({ onRestartStory, onGoToQuiz }) => {
+  const [endImgSrc, setEndImgSrc] = useState<string>(gratitudeImg);
+
   const handleRestart = () => {
     onRestartStory();
   };
@@ -55,9 +58,19 @@ export const EndScreen: React.FC<EndScreenProps> = ({ onRestartStory, onGoToQuiz
         {/* Character Image */}
         <div className="my-6 rounded-2xl overflow-hidden border-2 border-amber-200 aspect-[16/9] max-h-64 mx-auto shadow-md">
           <img
-            src="/src/assets/images/story_bac_cap_duong_gratitude_1794154528190.jpg"
+            src={endImgSrc}
             alt="Bác cấp dưỡng và bé Mai vẫy tay chào tạm biệt"
-            referrerPolicy="no-referrer"
+            loading="eager"
+            decoding="async"
+            onError={() => {
+              if (endImgSrc === gratitudeImg) {
+                setEndImgSrc('/images/gratitude.webp');
+              } else if (endImgSrc === '/images/gratitude.webp') {
+                setEndImgSrc('/images/gratitude.jpg');
+              } else {
+                setEndImgSrc(gratitudeBase64);
+              }
+            }}
             className="w-full h-full object-cover"
           />
         </div>
