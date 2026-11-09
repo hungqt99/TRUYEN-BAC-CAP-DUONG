@@ -1,0 +1,6 @@
+{
+  "name": "Bác Cấp Dưỡng - Truyện Kể Mầm Non",
+  "description": "Ứng dụng kể chuyện tương tác hoạt hình 2D dành cho trẻ mầm non với 10 cảnh truyện, giọng đọc cô giáo tiếng Việt truyền cảm, chế độ trình chiếu và đàm thoại tương tác.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
